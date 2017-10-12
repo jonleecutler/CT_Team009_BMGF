@@ -1,0 +1,23 @@
+# User-specific files
+*.suo
+*.user
+*.userprefs
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+build/
+[Bb]in/
+[Oo]bj/
+
+# NuGet Packages
+*.nupkg
+
+# MSTest test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# OS generated files #
+.DS_Store*
