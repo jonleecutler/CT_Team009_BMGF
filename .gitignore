@@ -21,3 +21,8 @@ build/
 
 # OS generated files #
 .DS_Store*
+
+# node
+node_modules/
+*.js.map
+package-lock.json
