@@ -8,6 +8,7 @@
     <Folder Include="wwwroot\" />
     <Folder Include="Storage\" />
     <Folder Include="Storage\Contracts\" />
+    <Folder Include="Controllers\Contracts\" />
   </ItemGroup>
 
   <ItemGroup>
@@ -23,5 +24,6 @@
 
   <ItemGroup>
     <Compile Remove="Storage\Contracts\Rating.cs" />
+    <Compile Remove="Controllers\ValuesController.cs" />
   </ItemGroup>
 </Project>
