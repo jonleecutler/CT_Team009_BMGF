@@ -1,18 +1,29 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+
+using CicoService.Storage;
 
 namespace CicoService.Controllers
 {
     [Route("api/[controller]")]
     public class ValuesController : Controller
     {
+        private readonly StorageProvider storageProvider;
+
+        public ValuesController(IConfiguration config)
+        {
+            this.storageProvider = new StorageProvider(config.GetConnectionString("cicostorage"));
+        }
+
         // GET api/values
         [HttpGet]
-        public IEnumerable<string> Get()
+        public async Task<IEnumerable<string>> Get()
         {
+            await this.storageProvider.CreateUser(Guid.NewGuid().ToString(), "First", "Last"); 
+
             return new string[] { "value1", "value2" };
         }
 
