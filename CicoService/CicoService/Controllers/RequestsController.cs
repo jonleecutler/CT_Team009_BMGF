@@ -1,10 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 
 using CicoService.Storage;
+using CicoService.Vision;
+using CicoService.Controllers.Contracts;
 
 namespace CicoService.Controllers
 {
@@ -12,10 +12,12 @@ namespace CicoService.Controllers
     public class RequestsController : Controller
     {
         private readonly StorageProvider storageProvider;
+        private readonly VisionProvider visionProvider;
 
         public RequestsController(IConfiguration config)
         {
             this.storageProvider = new StorageProvider(config.GetConnectionString("cicostorage"));
+            this.visionProvider = new VisionProvider(config.GetConnectionString("googlevision"));
         }
 
         // GET: api/requests
@@ -42,10 +44,12 @@ namespace CicoService.Controllers
 
         // POST api/requests
         [HttpPost]
-        public async Task<IActionResult> Post([FromBody]string value)
+        public async Task<IActionResult> Post([FromBody]Request request)
         {
             // Placeholder
             await Task.FromResult(true);
+
+            //await this.visionProvider.Detection(request.Image);
 
             // TODO: implement
             return NotFound();

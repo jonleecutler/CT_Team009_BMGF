@@ -9,6 +9,7 @@
     <Folder Include="Storage\" />
     <Folder Include="Storage\Contracts\" />
     <Folder Include="Controllers\Contracts\" />
+    <Folder Include="Vision\" />
   </ItemGroup>
 
   <ItemGroup>
@@ -16,6 +17,7 @@
     <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
     <PackageReference Include="Microsoft.ApplicationInsights" Version="2.4.0" />
     <PackageReference Include="WindowsAzure.Storage" Version="8.5.0" />
+    <PackageReference Include="Google.Apis.Vision.v1" Version="1.30.0.1041" />
   </ItemGroup>
 
   <ItemGroup>
