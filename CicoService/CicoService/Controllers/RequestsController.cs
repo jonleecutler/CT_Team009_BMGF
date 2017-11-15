@@ -46,13 +46,10 @@ namespace CicoService.Controllers
         [HttpPost]
         public async Task<IActionResult> Post([FromBody]Request request)
         {
-            // Placeholder
-            await Task.FromResult(true);
-
-            //await this.visionProvider.Detection(request.Image);
+            var annotateImageResponse = await this.visionProvider.AnnotateImage(request.Image);
 
             // TODO: implement
-            return NotFound();
+            return Json(annotateImageResponse);
         }
 
         // DELETE api/requests/{id}

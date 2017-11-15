@@ -32,7 +32,7 @@ namespace CicoService.Vision
             });
         }
 
-        public async Task Detection(string image)
+        public async Task<AnnotateImageResponse> AnnotateImage(string image)
         {
             var request = new AnnotateImageRequest
             {
@@ -49,9 +49,10 @@ namespace CicoService.Vision
 
             batchRequest.Requests.Add(request);
 
+            BatchAnnotateImagesResponse response;
             try
             {
-                var response = await this.visionService.Images.Annotate(batchRequest).ExecuteAsync();
+                response = await this.visionService.Images.Annotate(batchRequest).ExecuteAsync();
             }
             catch (GoogleApiException ex)
             {
@@ -59,7 +60,11 @@ namespace CicoService.Vision
                 //ex.HttpStatusCode
                 //ex.Error.Code
                 //ex.Error.Message
+
+                throw;
             }
+
+            return response.Responses.Count > 0 ? response.Responses[0] : null;
         }
 
         private static List<Feature> RequestFeatures = new List<Feature>()
