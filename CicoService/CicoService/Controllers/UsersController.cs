@@ -20,24 +20,37 @@ namespace CicoService.Controllers
 
         // GET api/users/{id}
         [HttpGet("{id}")]
-        public async Task<IActionResult> Get(int id)
+        public async Task<IActionResult> Get(string id)
         {
-            // Placeholder
-            await Task.FromResult(true);
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return BadRequest();
+            }
+
+            var userEntity = await this.storageProvider.RetrieveUser(id);
+            if (userEntity == null)
+            {
+                return NotFound();
+            }
 
             return Json(new User()
             {
-                Id = Guid.NewGuid().ToString(),
-                FirstName = "First",
-                LastName = "Last"
+                Id = userEntity.RowKey,
+                FirstName = userEntity.FirstName,
+                LastName = userEntity.LastName
             });
         }
 
         // POST api/users
         [HttpPost]
-        public async Task<IActionResult> Post([FromBody]string value)
+        public async Task<IActionResult> Post([FromBody]User user)
         {
-            await this.storageProvider.CreateUser(Guid.NewGuid().ToString(), "First", "Last");
+            if (user == null)
+            {
+                return BadRequest();
+            }
+
+            await this.storageProvider.CreateUser(user.Id, user.FirstName, user.LastName);
 
             return Ok();
         }

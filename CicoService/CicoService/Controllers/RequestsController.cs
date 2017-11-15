@@ -1,4 +1,6 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 
@@ -22,34 +24,60 @@ namespace CicoService.Controllers
 
         // GET: api/requests
         [HttpGet]
-        public async Task<IActionResult> Get()
+        public async Task<IActionResult> Get([FromQuery]string type)
         {
-            // Placeholder
-            await Task.FromResult(true);
+            if (string.IsNullOrWhiteSpace(type))
+            {
+                return BadRequest();
+            }
 
-            // TODO: implement
-            return NotFound();
-        }
+            var requestType = type.Equals("withdraw", StringComparison.OrdinalIgnoreCase)
+                  ? Storage.Contracts.RequestType.Withdraw
+                  : type.Equals("depost", StringComparison.OrdinalIgnoreCase)
+                  ? Storage.Contracts.RequestType.Deposit
+                  : Storage.Contracts.RequestType.Unknown;
 
-        // GET api/requests/{id}
-        [HttpGet("{id}")]
-        public async Task<IActionResult> Get(int id)
-        {
-            // Placeholder
-            await Task.FromResult(true);
+            if (requestType == Storage.Contracts.RequestType.Unknown)
+            {
+                return BadRequest();
+            }
 
-            // TODO: implement
-            return NotFound();
+            var requestEntities = await this.storageProvider.RetrieveRequests(requestType);
+            var requests = requestEntities.Select(re => new Request()
+            {
+                Currency = re.Currency,
+                Amount = decimal.Parse(re.Amount),
+                Type = ((Storage.Contracts.RequestType)re.Type).ToString()
+            });
+
+            return Json(requests);
         }
 
         // POST api/requests
         [HttpPost]
         public async Task<IActionResult> Post([FromBody]Request request)
         {
-            var annotateImageResponse = await this.visionProvider.AnnotateImage(request.Image);
+            if (request == null)
+            {
+                return BadRequest();
+            }
 
-            // TODO: implement
-            return Json(annotateImageResponse);
+            var requestType = request.Type.Equals("withdraw", StringComparison.OrdinalIgnoreCase)
+                  ? Storage.Contracts.RequestType.Withdraw
+                  : request.Type.Equals("depost", StringComparison.OrdinalIgnoreCase)
+                  ? Storage.Contracts.RequestType.Deposit
+                  : Storage.Contracts.RequestType.Unknown;
+
+            if (requestType == Storage.Contracts.RequestType.Unknown)
+            {
+                return BadRequest();
+            }
+
+            //var annotateImageResponse = await this.visionProvider.AnnotateImage(request.Image);
+
+            var requestId = await this.storageProvider.CreateRequest(request.Currency, request.Amount, requestType);
+
+            return Ok(requestId);
         }
 
         // DELETE api/requests/{id}

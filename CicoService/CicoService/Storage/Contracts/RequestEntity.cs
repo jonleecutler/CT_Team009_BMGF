@@ -12,7 +12,7 @@ namespace CicoService.Storage.Contracts
                 throw new ArgumentNullException(nameof(currency));
             }
 
-            if (Amount <= 0)
+            if (amount <= 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(amount));
             }
@@ -22,8 +22,8 @@ namespace CicoService.Storage.Contracts
             this.PartitionKey = id;
             this.RowKey = id;
             this.Currency = currency;
-            this.Amount = amount;
-            this.Type = type;
+            this.Amount = amount.ToString();
+            this.Type = (int)type;
         }
 
         public RequestEntity()
@@ -32,8 +32,8 @@ namespace CicoService.Storage.Contracts
 
         public string Currency { get; set; }
 
-        public decimal Amount { get; set; }
+        public string Amount { get; set; }
 
-        public RequestType Type { get; set; }
+        public int Type { get; set; }
     }
 }

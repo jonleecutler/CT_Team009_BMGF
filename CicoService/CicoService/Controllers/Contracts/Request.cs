@@ -11,6 +11,9 @@ namespace CicoService.Controllers.Contracts
         [JsonProperty(PropertyName = "amount")]
         public decimal Amount { get; set; }
 
+        [JsonProperty(PropertyName = "type")]
+        public string Type { get; set; }
+
         [JsonProperty(PropertyName = "image")]
         public string Image { get; set; }
     }

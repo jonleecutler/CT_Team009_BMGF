@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Table;
@@ -44,6 +45,16 @@ namespace CicoService.Storage
             });
         }
 
+        public async Task<UserEntity> RetrieveUser(string id)
+        {
+            var table = await userTable.Value;
+            var retrieveOperation = TableOperation.Retrieve<UserEntity>(id, id);
+
+            var tableResult = await table.ExecuteAsync(retrieveOperation);
+
+            return (UserEntity)tableResult.Result;
+        }
+
         public async Task<string> CreateUser(string id, string firstName, string lastName)
         {
             var table = await userTable.Value;
@@ -53,6 +64,21 @@ namespace CicoService.Storage
             await table.ExecuteAsync(insertOperation);
 
             return user.RowKey;
+        }
+
+        public async Task<IEnumerable<RequestEntity>> RetrieveRequests(RequestType type)
+        {
+            var table = await requestTable.Value;
+            var retrieveQueryFilter = TableQuery.GenerateFilterConditionForInt("Type", QueryComparisons.Equal, (int)type);
+            var retrieveQuery = new TableQuery<RequestEntity>()
+            {
+                FilterString = retrieveQueryFilter
+            };
+
+            var continuationToken = default(TableContinuationToken);
+            var tableResult = await table.ExecuteQuerySegmentedAsync(retrieveQuery, continuationToken);
+
+            return tableResult.Results;
         }
 
         public async Task<string> CreateRequest(string currency, decimal amount, RequestType type)
