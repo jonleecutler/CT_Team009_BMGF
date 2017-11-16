@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 using Google;
@@ -21,14 +22,41 @@ namespace CicoService.Vision
 
         private readonly VisionService visionService;
 
+        private static List<Feature> RequestFeatures = new List<Feature>()
+        {
+            new Feature() { Type = LabelDetectionFeature },
+            new Feature() { Type = TextDetectionFeature },
+        };
+
+        private static Regex SerialNumberRegex = new Regex(@"^[A-Z]{1}\s*[0-9]{8}\s*[A-Z]{1}$", RegexOptions.Compiled);
+
+        private static Dictionary<char, char> CharacterMappings = new Dictionary<char, char>()
+        {
+            { 'し', 'L' },
+        };
+
+        private static HashSet<string> ImageLabels = new HashSet<string>()
+        {
+            "cash",
+            "currency",
+            "paper",
+            "money",
+            "dollar",
+            "bill",
+        };
+
         public VisionProvider(string connectionString)
         {
+            // TODO: testing regex, remove this
+            //var x = "L 12345678 G";
+            //var result = SerialNumberRegex.Match(x);
+
             var credential = GoogleCredential.FromJson(connectionString).CreateScoped(VisionService.Scope.CloudPlatform);
 
             this.visionService = new VisionService(new BaseClientService.Initializer()
             {
                 HttpClientInitializer = credential,
-                ApplicationName = "GV Service Account"
+                ApplicationName = "GV Service Account",
             });
         }
 
@@ -36,7 +64,7 @@ namespace CicoService.Vision
         {
             var request = new AnnotateImageRequest
             {
-                Image = new Image()
+                Image = new Image(),
             };
 
             request.Image.Content = image;
@@ -44,7 +72,7 @@ namespace CicoService.Vision
 
             var batchRequest = new BatchAnnotateImagesRequest
             {
-                Requests = new List<AnnotateImageRequest>()
+                Requests = new List<AnnotateImageRequest>(),
             };
 
             batchRequest.Requests.Add(request);
@@ -66,11 +94,5 @@ namespace CicoService.Vision
 
             return response.Responses.Count > 0 ? response.Responses[0] : null;
         }
-
-        private static List<Feature> RequestFeatures = new List<Feature>()
-        {
-            new Feature() { Type = LabelDetectionFeature },
-            new Feature() { Type = TextDetectionFeature },
-        };
     }
 }
