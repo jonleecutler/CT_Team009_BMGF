@@ -5,7 +5,7 @@ namespace CicoService.Storage.Contracts
 {
     public class RequestEntity : TableEntity
     {
-        public RequestEntity(string currency, decimal amount, RequestType type)
+        public RequestEntity(string currency, decimal amount, string serialNumber, RequestType type)
         {
             if (string.IsNullOrWhiteSpace(currency))
             {
@@ -23,6 +23,7 @@ namespace CicoService.Storage.Contracts
             this.RowKey = id;
             this.Currency = currency;
             this.Amount = amount.ToString();
+            this.SerialNumber = serialNumber;
             this.Type = (int)type;
         }
 
@@ -33,6 +34,8 @@ namespace CicoService.Storage.Contracts
         public string Currency { get; set; }
 
         public string Amount { get; set; }
+
+        public string SerialNumber { get; set; }
 
         public int Type { get; set; }
     }

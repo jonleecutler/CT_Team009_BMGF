@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 using Google;
@@ -28,29 +27,8 @@ namespace CicoService.Vision
             new Feature() { Type = TextDetectionFeature },
         };
 
-        private static Regex SerialNumberRegex = new Regex(@"^[A-Z]{1}\s*[0-9]{8}\s*[A-Z]{1}$", RegexOptions.Compiled);
-
-        private static Dictionary<char, char> CharacterMappings = new Dictionary<char, char>()
-        {
-            { 'し', 'L' },
-        };
-
-        private static HashSet<string> ImageLabels = new HashSet<string>()
-        {
-            "cash",
-            "currency",
-            "paper",
-            "money",
-            "dollar",
-            "bill",
-        };
-
         public VisionProvider(string connectionString)
         {
-            // TODO: testing regex, remove this
-            //var x = "L 12345678 G";
-            //var result = SerialNumberRegex.Match(x);
-
             var credential = GoogleCredential.FromJson(connectionString).CreateScoped(VisionService.Scope.CloudPlatform);
 
             this.visionService = new VisionService(new BaseClientService.Initializer()
@@ -60,7 +38,7 @@ namespace CicoService.Vision
             });
         }
 
-        public async Task<AnnotateImageResponse> AnnotateImage(string image)
+        public async Task<AnnotatedImage> AnnotateImage(string image)
         {
             var request = new AnnotateImageRequest
             {
@@ -92,7 +70,9 @@ namespace CicoService.Vision
                 throw;
             }
 
-            return response.Responses.Count > 0 ? response.Responses[0] : null;
+            return response.Responses.Count > 0
+               ? new AnnotatedImage(response.Responses[0])
+               : null;
         }
     }
 }

@@ -81,10 +81,10 @@ namespace CicoService.Storage
             return tableResult.Results;
         }
 
-        public async Task<string> CreateRequest(string currency, decimal amount, RequestType type)
+        public async Task<string> CreateRequest(string currency, decimal amount, string serialNumber, RequestType type)
         {
             var table = await requestTable.Value;
-            var request = new RequestEntity(currency, amount, type);
+            var request = new RequestEntity(currency, amount, serialNumber, type);
             var insertOperation = TableOperation.InsertOrReplace(request);
 
             await table.ExecuteAsync(insertOperation);

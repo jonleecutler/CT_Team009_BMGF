@@ -73,9 +73,24 @@ namespace CicoService.Controllers
                 return BadRequest();
             }
 
-            //var annotateImageResponse = await this.visionProvider.AnnotateImage(request.Image);
+            var annotatedImage = await this.visionProvider.AnnotateImage(request.Image);
+            annotatedImage.Analyze();
 
-            var requestId = await this.storageProvider.CreateRequest(request.Currency, request.Amount, requestType);
+            if (!annotatedImage.IsCash)
+            {
+                return BadRequest("The image is not cash.");
+            }
+
+            if (!annotatedImage.IsParsed)
+            {
+                return BadRequest("The serial number did not parsed correcty.");
+            }
+
+            var requestId = await this.storageProvider.CreateRequest(
+                    request.Currency,
+                    request.Amount,
+                    annotatedImage.SerialNumber,
+                    requestType);
 
             return Ok(requestId);
         }
