@@ -1,10 +1,12 @@
-﻿using System;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 
 namespace CicoService.Controllers.Contracts
 {
     public class Request
     {
+        [JsonProperty(PropertyName = "userId")]
+        public string UserId { get; set; }
+
         [JsonProperty(PropertyName = "currency")]
         public string Currency { get; set; }
 

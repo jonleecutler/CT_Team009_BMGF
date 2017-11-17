@@ -5,8 +5,13 @@ namespace CicoService.Storage.Contracts
 {
     public class RequestEntity : TableEntity
     {
-        public RequestEntity(string currency, decimal amount, string serialNumber, RequestType type)
+        public RequestEntity(string userId, string currency, decimal amount, string serialNumber, RequestType type)
         {
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                throw new ArgumentNullException(nameof(userId));
+            }
+
             if (string.IsNullOrWhiteSpace(currency))
             {
                 throw new ArgumentNullException(nameof(currency));
@@ -21,6 +26,7 @@ namespace CicoService.Storage.Contracts
 
             this.PartitionKey = id;
             this.RowKey = id;
+            this.UserId = userId;
             this.Currency = currency;
             this.Amount = amount.ToString();
             this.SerialNumber = serialNumber;
@@ -30,6 +36,8 @@ namespace CicoService.Storage.Contracts
         public RequestEntity()
         {
         }
+
+        public string UserId { get; set; }
 
         public string Currency { get; set; }
 

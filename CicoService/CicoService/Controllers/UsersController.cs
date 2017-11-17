@@ -36,8 +36,9 @@ namespace CicoService.Controllers
             return Json(new User()
             {
                 Id = userEntity.RowKey,
-                FirstName = userEntity.FirstName,
-                LastName = userEntity.LastName
+                Name = userEntity.Name,
+                Rating = userEntity.Rating,
+                ImageUri = userEntity.ImageUri,
             });
         }
 
@@ -50,7 +51,7 @@ namespace CicoService.Controllers
                 return BadRequest();
             }
 
-            await this.storageProvider.CreateUser(user.Id, user.FirstName, user.LastName);
+            await this.storageProvider.CreateOrUpdateUser(user.Id, user.Name, user.Address);
 
             return Ok();
         }

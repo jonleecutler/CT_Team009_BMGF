@@ -53,9 +53,64 @@ namespace CicoService.Controllers
             return Json(requests);
         }
 
+        // POST api/requests/verify
+        [HttpPost]
+        [Route("verify")]
+        public async Task<IActionResult> PostVerify([FromBody]Verify verify)
+        {
+            // Get the deposit and withdraw requests
+            var depositRequest = await this.storageProvider.RetrieveRequest(verify.DepositId);
+            var withdrawRequest = await this.storageProvider.RetrieveRequest(verify.WithdrawId);
+
+            // Get the matched users
+            var depositUser = await this.storageProvider.RetrieveUser(depositRequest.UserId);
+            var withdrawUser = await this.storageProvider.RetrieveUser(withdrawRequest.UserId);
+
+            var annotatedImage = await this.visionProvider.AnnotateImage(verify.Image);
+            annotatedImage.Analyze();
+
+            if (!annotatedImage.IsCash)
+            {
+                return BadRequest("The image is not cash.");
+            }
+
+            if (!annotatedImage.IsParsed)
+            {
+                return BadRequest("The serial number did not parsed correcty.");
+            }
+
+            if (!annotatedImage.SerialNumber.Equals(depositRequest.SerialNumber))
+            {
+                return Unauthorized();
+            }
+
+            // Cleanup the completed requests
+            await this.storageProvider.DeleteRequest(depositRequest);
+            await this.storageProvider.DeleteRequest(withdrawRequest);
+
+            return Json(new Details()
+            {
+                UserId = withdrawUser.PartitionKey,
+                UserName = withdrawUser.Name,
+                UserAddress = withdrawUser.Address,
+                UserImageUri = withdrawUser.ImageUri,
+
+                MatchUserId = depositUser.PartitionKey,
+                MatchUserName = depositUser.Name,
+                MatchUserAddress = depositUser.Address,
+                MatchUserImageUri = depositUser.ImageUri,
+
+                DepositId = depositRequest.PartitionKey,
+                WithdrawId = withdrawRequest.PartitionKey,
+                Currency = withdrawRequest.Currency,
+                Amount = decimal.Parse(withdrawRequest.Amount),
+                SerialNumber = annotatedImage.SerialNumber,
+            });
+        }
+
         // POST api/requests
         [HttpPost]
-        public async Task<IActionResult> Post([FromBody]Request request)
+        public async Task<IActionResult> PostCreate([FromBody]Request request)
         {
             if (request == null)
             {
@@ -68,11 +123,21 @@ namespace CicoService.Controllers
                   ? Storage.Contracts.RequestType.Deposit
                   : Storage.Contracts.RequestType.Unknown;
 
-            if (requestType == Storage.Contracts.RequestType.Unknown)
+            switch (requestType)
             {
-                return BadRequest();
-            }
+                case Storage.Contracts.RequestType.Deposit:
+                    return await CreateDepost(request);
 
+                case Storage.Contracts.RequestType.Withdraw:
+                    return await CreateWithdraw(request);
+
+                default:
+                    return BadRequest("Unknown request type.");
+            }
+        }
+
+        private async Task<IActionResult> CreateDepost(Request request)
+        {
             var annotatedImage = await this.visionProvider.AnnotateImage(request.Image);
             annotatedImage.Analyze();
 
@@ -86,24 +151,59 @@ namespace CicoService.Controllers
                 return BadRequest("The serial number did not parsed correcty.");
             }
 
-            var requestId = await this.storageProvider.CreateRequest(
-                    request.Currency,
-                    request.Amount,
-                    annotatedImage.SerialNumber,
-                    requestType);
+            // Create the new depost request
+            await this.storageProvider.CreateRequest(
+                request.UserId,
+                request.Currency,
+                request.Amount,
+                annotatedImage.SerialNumber,
+                Storage.Contracts.RequestType.Deposit);
 
-            return Ok(requestId);
+            return Ok();
         }
 
-        // DELETE api/requests/{id}
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
+        private async Task<IActionResult> CreateWithdraw(Request request)
         {
-            // Placeholder
-            await Task.FromResult(true);
+            // Create the new withdraw request
+            var withdrawId = await this.storageProvider.CreateRequest(
+                request.UserId,
+                request.Currency,
+                request.Amount,
+                null,
+                Storage.Contracts.RequestType.Withdraw);
 
-            // TODO: implement
-            return NotFound();
+            // Look for pending deposits in the system
+            var pendingDeposits = await this.storageProvider.RetrieveRequests(Storage.Contracts.RequestType.Deposit);
+
+            // Take the first or default deposit from the system
+            var matchingDepost = pendingDeposits.FirstOrDefault();
+            if (matchingDepost == null)
+            {
+                return Ok();
+            }
+
+            // Get the matched users
+            var currentUser = await this.storageProvider.RetrieveUser(request.UserId);
+            var matchUser = await this.storageProvider.RetrieveUser(matchingDepost.UserId);
+
+            return Json(new Details()
+            {
+                UserId = currentUser.PartitionKey,
+                UserName = currentUser.Name,
+                UserAddress = currentUser.Address,
+                UserImageUri = currentUser.ImageUri,
+
+                MatchUserId = matchUser.PartitionKey,
+                MatchUserName = matchUser.Name,
+                MatchUserAddress = matchUser.Address,
+                MatchUserImageUri = matchUser.ImageUri,
+
+                DepositId = matchingDepost.PartitionKey,
+                WithdrawId = withdrawId,
+                Currency = request.Currency,
+                Amount = request.Amount,
+                SerialNumber = matchingDepost.SerialNumber,
+            });
         }
     }
 }

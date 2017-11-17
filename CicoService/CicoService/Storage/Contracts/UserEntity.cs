@@ -5,7 +5,7 @@ namespace CicoService.Storage.Contracts
 {
     public class UserEntity : TableEntity
     {
-        public UserEntity(string id, string firstName, string lastName)
+        public UserEntity(string id, string name, string address)
         {
             if (string.IsNullOrWhiteSpace(id))
             {
@@ -14,19 +14,22 @@ namespace CicoService.Storage.Contracts
 
             this.PartitionKey = id;
             this.RowKey = id;
-            this.FirstName = firstName;
-            this.LastName = lastName;
-            this.Rating = 5;
+            this.Name = name;
+            this.Address = address;
+            this.Rating = 0;
+            this.ImageUri = null;
         }
 
         public UserEntity()
         {
         }
 
-        public string FirstName { get; set; }
+        public string Name { get; set; }
 
-        public string LastName { get; set; }
+        public string Address { get; set; }
 
         public int Rating { get; set; }
+
+        public string ImageUri { get; set; }
     }
 }

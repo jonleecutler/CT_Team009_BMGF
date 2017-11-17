@@ -8,10 +8,16 @@ namespace CicoService.Controllers.Contracts
         [JsonProperty(PropertyName = "id")]
         public string Id { get; set; }
 
-        [JsonProperty(PropertyName = "firstName")]
-        public string FirstName { get; set; }
+        [JsonProperty(PropertyName = "name")]
+        public string Name { get; set; }
 
-        [JsonProperty(PropertyName = "lastName")]
-        public string LastName { get; set; }
+        [JsonProperty(PropertyName = "address")]
+        public string Address { get; set; }
+
+        [JsonProperty(PropertyName = "rating")]
+        public int Rating { get; set; }
+
+        [JsonProperty(PropertyName = "imageUri")]
+        public string ImageUri { get; set; }
     }
 }

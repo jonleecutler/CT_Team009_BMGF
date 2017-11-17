@@ -55,15 +55,33 @@ namespace CicoService.Storage
             return (UserEntity)tableResult.Result;
         }
 
-        public async Task<string> CreateUser(string id, string firstName, string lastName)
+        public async Task<string> CreateOrUpdateUser(string id, string name, string address)
         {
             var table = await userTable.Value;
-            var user = new UserEntity(id, firstName, lastName);
-            var insertOperation = TableOperation.InsertOrReplace(user);
+            var user = new UserEntity(id, name, address);
+            var insertOperation = TableOperation.InsertOrMerge(user);
 
             await table.ExecuteAsync(insertOperation);
 
             return user.RowKey;
+        }
+
+        public async Task<RequestEntity> RetrieveRequest(string id)
+        {
+            var table = await requestTable.Value;
+            var retrieveOperation = TableOperation.Retrieve<RequestEntity>(id, id);
+
+            var tableResult = await table.ExecuteAsync(retrieveOperation);
+
+            return (RequestEntity)tableResult.Result;
+        }
+
+        public async Task DeleteRequest(RequestEntity request)
+        {
+            var table = await requestTable.Value;
+            var deleteOperation = TableOperation.Delete(request);
+
+            await table.ExecuteAsync(deleteOperation);
         }
 
         public async Task<IEnumerable<RequestEntity>> RetrieveRequests(RequestType type)
@@ -81,10 +99,10 @@ namespace CicoService.Storage
             return tableResult.Results;
         }
 
-        public async Task<string> CreateRequest(string currency, decimal amount, string serialNumber, RequestType type)
+        public async Task<string> CreateRequest(string userId, string currency, decimal amount, string serialNumber, RequestType type)
         {
             var table = await requestTable.Value;
-            var request = new RequestEntity(currency, amount, serialNumber, type);
+            var request = new RequestEntity(userId, currency, amount, serialNumber, type);
             var insertOperation = TableOperation.InsertOrReplace(request);
 
             await table.ExecuteAsync(insertOperation);
