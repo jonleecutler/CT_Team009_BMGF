@@ -33,7 +33,7 @@ namespace CicoService.Controllers
 
             var requestType = type.Equals("withdraw", StringComparison.OrdinalIgnoreCase)
                   ? Storage.Contracts.RequestType.Withdraw
-                  : type.Equals("depost", StringComparison.OrdinalIgnoreCase)
+                  : type.Equals("deposit", StringComparison.OrdinalIgnoreCase)
                   ? Storage.Contracts.RequestType.Deposit
                   : Storage.Contracts.RequestType.Unknown;
 
@@ -119,7 +119,7 @@ namespace CicoService.Controllers
 
             var requestType = request.Type.Equals("withdraw", StringComparison.OrdinalIgnoreCase)
                   ? Storage.Contracts.RequestType.Withdraw
-                  : request.Type.Equals("depost", StringComparison.OrdinalIgnoreCase)
+                  : request.Type.Equals("deposit", StringComparison.OrdinalIgnoreCase)
                   ? Storage.Contracts.RequestType.Deposit
                   : Storage.Contracts.RequestType.Unknown;
 
