@@ -1,5 +1,5 @@
 /*-----------------------------------------------------------------------------
-A simple echo bot for the Microsoft Bot Framework. 
+Pocket Change bot for the Microsoft Bot Framework. 
 -----------------------------------------------------------------------------*/
 
 var azure = require('botbuilder-azure');
@@ -10,23 +10,16 @@ var request = require('request-promise').defaults({ encoding: null });
 var btoa = require('btoa');
 
 var stateProperty = 'state';
-var matchProperty = 'match';
+var depositIdProperty = 'depositId';
+var withdrawIdProperty = 'withdrawId';
 
 var SessionState = {
     START : 0,
     HOMEPROMPT : 1,
     WITHDRAW : 2,
     DEPOSIT: 3,
-    MATCHES: 4,
-    MEET: 5
-};
-
-var users = {
-    "Sunil" : 'https://cicostorage.blob.core.windows.net/bot-images/User%201.png',
-    "Nikita" : 'https://cicostorage.blob.core.windows.net/bot-images/User%202.png',
-    "Raj" : 'https://cicostorage.blob.core.windows.net/bot-images/User%203.png',
-    "Amitabh" : 'https://cicostorage.blob.core.windows.net/bot-images/User%204.png',
-    "Arjun" : 'https://cicostorage.blob.core.windows.net/bot-images/User%205.png'
+    MEET: 4,
+    RATE: 5
 };
 
 // Setup Restify Server
@@ -87,48 +80,6 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
     
     var state = getSessionState(session);
     
-    // PROTOTYPE TAKING IMAGE DATA
-    if (session.message.attachments && session.message.attachments.length > 0) {
-        session.send('Got an image.');
-        
-        var attachment = session.message.attachments[0];
-        var fileDownload = checkRequiresToken(session.message)
-            ? requestWithToken(attachment.contentUrl)
-            : request(attachment.contentUrl);
-
-        console.log(attachment.contentUrl);
-
-        fileDownload.then(
-            function (response) {                
-                var imageData = btoa(response);
-                
-                //console.log('response base64: ' + imageData);
-
-                var options = {
-                    method: 'POST',
-                    uri: 'https://cicoservice.azurewebsites.net/api/requests',
-                    body: {
-                        currency: 'USD',
-                        amount: 1.75,
-	                    type: 'withdraw',
-	                    image: imageData
-                    },
-                    json: true // Automatically stringifies the body to JSON
-                };
-                 
-                request(options)
-                    .then(function (parsedBody) {
-                        // POST succeeded...
-                        console.log('success: ' + parsedBody);
-                        session.send(parsedBody);
-                    })
-                    .catch(function (err) {
-                        // POST failed...
-                        console.log('success');
-                    });
-            });
-    }
-    
     // session.send('Name: \'%s\'\n, Id: \'%s\'\n, Input: \'%s\'\n, Channel: \'%s\'\n, State: \'%s\'',
     //     session.message.user.name,
     //     session.message.user.id,
@@ -146,16 +97,15 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
             break;
 
         case SessionState.DEPOSIT:
-            // TODO: handle depost, for now go back to start
-            handleStartState(session);
+            handleDepositState(session);
             break;
 
-        case SessionState.MATCHES:
-            handleMatchesState(session);
-            break;
-            
         case SessionState.MEET:
             handleMeetState(session);
+            break;
+            
+        case SessionState.RATE:
+            handleRateState(session);
             break;
 
         case SessionState.START:   
@@ -163,32 +113,6 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
             handleStartState(session);
             break;
     }
-    
-    //session.send("What would you like to do? [temp]");
-    // var homePrompt = createHomePrompt(session);
-    // var homeMsg = new builder.Message(session).addAttachment(homePrompt);
-    // session.send(homeMsg);    
-
-    //session.send('How much do you want to withdraw?');
-    //session.send('Are you sure you want to withraw $_?');
-    
-    // var loadMatches = createLoadMatches(session);
-    // var loadMatchesMsg = new builder.Message(session).addAttachment(loadMatches);
-    //session.send('Finding Matches...');
-
-    //var mapMatches = createMapMatches(session);
-    //var mapMatchesMsg = new builder.Message(session).addAttachment(mapMatches);
-    //session.send(mapMatchesMsg);
-
-    //var matchCards = getMatchCards(session);
-    //var matchCardsMsg = new builder.Message(session).attachmentLayout(builder.AttachmentLayout.carousel).attachments(matchCards)
-    //session.send(matchCardsMsg);
-
-    //session.send('You have 24 hours to meet up to complete the cash exchange.');
-    
-    //var qrCode = createQRCode(session);
-    //var qrCodeMsg = new builder.Message(session).addAttachment(qrCode);
-    //session.send(qrCodeMsg);
 });
 
 bot.dialog('/', intents);
@@ -212,12 +136,20 @@ function setSessionState(session, state) {
     session.conversationData[stateProperty] = state;
 }
 
-function getSessionMatch(session) {
-    return session.conversationData[matchProperty];
+function getSessionDepositId(session) {
+    return session.conversationData[depositIdProperty];
 }
 
-function setSessionMatch(session, match) {
-    session.conversationData[matchProperty] = match;
+function getSessionWithdrawId(session) {
+    return session.conversationData[withdrawIdProperty];
+}
+
+function setSessionDepositId(session, depositId) {
+    session.conversationData[depositIdProperty] = depositId;
+}
+
+function setSessionWithdrawId(session, withdrawId) {
+    session.conversationData[withdrawIdProperty] = withdrawId;
 }
 
 function endSession(session) {
@@ -256,32 +188,123 @@ function handleHomePromptState(session) {
     handleStartState(session);
 }
 
-function handleWithdrawState(session) {
-    session.send('Ok, finding matches who can give you %s in cash. Please wait...', session.message.text);
-    
-    // Display Map of Matches
-    session.send(new builder.Message(session).addAttachment(createMapMatches(session)));
-    // Display Carousel of Matches
-    //session.send(new builder.Message(session).attachmentLayout(builder.AttachmentLayout.carousel).attachments((createMatchCards(session))));
-    
-    setSessionState(session, SessionState.MATCHES);
+function handleDepositState(session) {
+    if (session.message.attachments && session.message.attachments.length > 0) {
+        var attachment = session.message.attachments[0];
+        var fileDownload = checkRequiresToken(session.message)
+            ? requestWithToken(attachment.contentUrl)
+            : request(attachment.contentUrl);
+
+        fileDownload.then(function (response) {                
+            var image = btoa(response);
+        
+            createDepositRequest(session.message.user.id, image).then(function (parsedBody) {
+                console.log('create deposit request success');
+                
+                // Notify the user that we are looking for matches and will let them know
+                session.send('Thank you, we are currently looking for withdrawers and will notify you when we have a match!');
+     
+                // Set the session state to rate
+                setSessionState(session, SessionState.RATE);
+            })
+            .catch(function (err) {
+                console.log('create deposit request failed');
+            });
+        });
+    }
+    else {
+        session.send('Ok great, please upload an image of your cash. We will match you with someone who can give you %s in digital.', session.message.text);
+    }
 }
 
-function handleMatchesState(session) {
-    var match = session.message.text;
-    
-    // Set the match for the session
-    setSessionMatch(session, match);
-    
-    session.send(new builder.Message(session).addAttachment(createConfirmMatch(session)));
-    session.send(new builder.Message(session).addAttachment(createRateMatch(session)));
-    setSessionState(session, SessionState.MEET);
+function handleWithdrawState(session) {
+    createWithdrawRequest(session.message.user.id).then(function (parsedBody) {
+        console.log('create withdraw request success');
+        
+        // Send action message to self
+        session.send(`We found a match! when you meet with ${parsedBody.matchUserName} upload a picture of the cash you are accepting to confirm the transaction. You must accept the bill with serial number ${parsedBody.serialNumber}.`);
+        
+        // Display match to self
+        session.send(new builder.Message(session).addAttachment(createMatchCard(session, parsedBody.matchUserName, parsedBody.matchUserImageUri)));
+
+        // Send action message to peer 
+        // Display match to peer
+        sendProactiveCard(
+            createMatchCard(session, parsedBody.userName, parsedBody.userImageUri),
+            `We found a match! when you meet with ${parsedBody.userName} they will need to upload a picture of the cash you are delivering to confirm the transaction. You must provide the bill with serial number ${parsedBody.serialNumber}.`,
+            parsedBody.matchUserAddress);
+
+        // Set the session deposit and withdraw ids
+        setSessionDepositId(session, parsedBody.depositId);
+        setSessionWithdrawId(session, parsedBody.withdrawId);
+
+        // Set the session state to meet
+        setSessionState(session, SessionState.MEET);
+    })
+    .catch(function (err) {
+        console.log('create withdraw request failed');
+    });
 }
 
 function handleMeetState(session) {
-    var match = getSessionMatch(session);
     
-    session.send('Thank you for using Money Jadoo!');
+    console.log('handleMeetState start');
+    
+    if (session.message.attachments && session.message.attachments.length > 0) {
+        
+        console.log('handleMeetState got attachment');
+        
+        var attachment = session.message.attachments[0];
+        var fileDownload = checkRequiresToken(session.message)
+            ? requestWithToken(attachment.contentUrl)
+            : request(attachment.contentUrl);
+
+        fileDownload.then(function (response) {                
+            var image = btoa(response);
+            var depositId = getSessionDepositId(session);
+            var withdrawId = getSessionWithdrawId(session);
+        
+            createVerifyRequest(depositId, withdrawId, image).then(function (parsedBody) {
+                console.log('create verify request success');
+                
+                // Send action notice to self
+                session.send(`Withdrawal complete! cash has been successfully accepted from ${parsedBody.matchUserName}, and your account has been debited.`);
+        
+                // Display match to self
+                session.send(new builder.Message(session).addAttachment(createRateCard(session, parsedBody.matchUserName)));
+        
+                // Send action notice to peer
+                // Display rating prompt to peer
+                sendProactiveCard(
+                    createRateCard(session, parsedBody.userName),
+                    `Deposit complete! cash has been successfully accepted by ${parsedBody.userName}, and your account has been credited.`,
+                    parsedBody.matchUserAddress);
+     
+                // Set the session state to rate
+                setSessionState(session, SessionState.RATE);
+            })
+            .catch(function (err) {
+                console.log('create verify request failed');
+                
+                // The serial number is incorrect
+                if (err.response.statusCode == 401) {
+                    session.send('The cash you have scanned does not have the expected serial number.');
+                }
+                
+                // The image is not cash
+                else if (err.response.statusCode == 400) {
+                    session.send('The image you have scanned is not cash.');
+                }
+            });
+        });
+    }
+    else {
+        session.send('Please upload an image of the cash you are accepting.');
+    }
+}
+
+function handleRateState(session) {
+    session.send('Thank you for using Pocket Change!');
     endSession(session);
 }
 
@@ -315,103 +338,35 @@ function createHomeCard(session) {
         ]);
 }
 
-function createMapMatches(session) {
-    return new builder.HeroCard(session)
-        //.title('Here are your top 5 matches.')
-        .title('You have been matched!')
-        .subtitle('')
-        .text('')
-        // .images([
-        //     builder.CardImage.create(session, 'https://cicostorage.blob.core.windows.net/bot-images/Map%20Image.png')
-        // ])
-        .images([
-            builder.CardImage.create(session, 'https://cicostorage.blob.core.windows.net/bot-images/User%201.png')
-        ])
-        .buttons([
-        ]);
-}
+// function createMapOfSafeMeetup(session) {
+//     return new builder.HeroCard(session)
+//         .title('Meetup Site - Verified Secure')
+//         .subtitle('')
+//         .text('')
+//         .images([
+//             builder.CardImage.create(session, 'https://cicostorage.blob.core.windows.net/bot-images/02%20map.png')
+//         ])
+//         .buttons([
+//         ]);
+// }
 
-function createMatchCards(session) {
-    return [
-      new builder.HeroCard(session)
-        .title('Sunil S 🏆')
-        .subtitle('0.5km | ⭐️⭐️⭐️⭐️⭐️ | Verified Agent')
+function createMatchCard(session, name, imageUri) {
+      return new builder.HeroCard(session)
+        .title(name)
+        .subtitle('0.5km | ⭐️⭐️⭐️⭐️ | Verified')
         .text('')
         .images([
-            builder.CardImage.create(session, 'https://cicostorage.blob.core.windows.net/bot-images/User%201.png')
-        ])
-        .buttons([
-            builder.CardAction.postBack(session, "Sunil", "Select Sunil")
-      ]), 
-
-      new builder.HeroCard(session)
-        .title('Nikita P')
-        .subtitle('0.7km | ⭐️⭐️⭐️⭐️⭐️')
-        .text('')
-        .images([
-            builder.CardImage.create(session, 'https://cicostorage.blob.core.windows.net/bot-images/User%202.png')
-        ])
-        .buttons([
-            builder.CardAction.postBack(session, "Nikita", "Select Nikita")
-      ]), 
-      
-      new builder.HeroCard(session)
-        .title('Raj K')
-        .subtitle('1.2km | ⭐️⭐️⭐️⭐️')
-        .text('')
-        .images([
-            builder.CardImage.create(session, 'https://cicostorage.blob.core.windows.net/bot-images/User%203.png')
-        ])
-        .buttons([
-            builder.CardAction.postBack(session, "Raj", "Select Raj")
-      ]), 
-      
-      new builder.HeroCard(session)
-        .title('Amitabh B')
-        .subtitle('3km | ⭐️⭐️⭐️')
-        .text('')
-        .images([
-            builder.CardImage.create(session, 'https://cicostorage.blob.core.windows.net/bot-images/User%204.png')
-        ])
-        .buttons([
-            builder.CardAction.postBack(session, "Amitabh", "Select Amitabh")
-      ]), 
-      
-      new builder.HeroCard(session)
-        .title('Arjun K')
-        .subtitle('5km | ⭐️⭐⭐⭐⭐')
-        .text('')
-        .images([
-            builder.CardImage.create(session, 'https://cicostorage.blob.core.windows.net/bot-images/User%205.png')
-        ])
-        .buttons([
-            builder.CardAction.postBack(session, "Arjun", "Select Arjun")
-      ]),      
-    ];
-}
-
-
-function createConfirmMatch(session) {
-    var match = getSessionMatch(session);
-    
-    return new builder.HeroCard(session)
-        .title('You have two hours to meet ' + match + '.')
-        .subtitle('Your digital amount is on hold.')
-        .text('')
-        .images([
-            builder.CardImage.create(session, users[match])
+            builder.CardImage.create(session, imageUri)
         ])
         .buttons([
             builder.CardAction.postBack(session, "Call", "Call"),
-            builder.CardAction.postBack(session, "Cancel", "Cancel")
-        ]);
+            builder.CardAction.postBack(session, "Message", "Message")
+      ]);
 }
 
-function createRateMatch(session) {
-    var match = getSessionMatch(session);
-        
+function createRateCard(session, name) {
     return new builder.HeroCard(session)
-        .title('Rate ' + match + ' once you complete your exchange.')
+        .title(`Rate ${name} based on your recent transaction.`)
         .subtitle('')
         .text('')
         .images([
@@ -438,7 +393,7 @@ function createWithdrawCard(session) {
 
 function createDepositCard(session) {
     return new builder.HeroCard(session)
-        .title('How much do you want to depost?')
+        .title('How much do you want to deposit?')
         .subtitle('')
         .text('Select an option below or type an amount (e.g. $4.50).')
         .images([])
@@ -508,17 +463,74 @@ function createOrUpdateUser(session) {
     });
 };
 
-// function createQRCode(session) {
-//     return new builder.HeroCard(session)
-//         .title("Please scan your match's QR Code.")
-//         .subtitle('Let your match scan this QR Code on their device. We use this to authenticate your meetup.')
-//         .text('')
-//         .images([
-//             builder.CardImage.create(session, 'https://media.giphy.com/media/pwy82UN1wMJnq/giphy.gif')
-//         ])
-//         .buttons([
-//         ]);
+var createDepositRequest = function (userId, image) {
+    var uri = `https://cicoservice.azurewebsites.net/api/requests`;
+    
+    var options = {
+        method: 'POST',
+        uri: uri,
+        body: {
+            userId: userId,
+            currency: 'USD',
+            amount: 1,
+            type: 'deposit',
+            image: image
+        },
+        json: true // Automatically stringifies the body to JSON
+    };
+ 
+    return request(options);
+};
+
+var createWithdrawRequest = function (userId) {
+    var uri = `https://cicoservice.azurewebsites.net/api/requests`;
+    
+    var options = {
+        method: 'POST',
+        uri: uri,
+        body: {
+            userId: userId,
+            currency: 'USD',
+            amount: 1,
+            type: 'withdraw'
+        },
+        json: true // Automatically stringifies the body to JSON
+    };
+ 
+    return request(options);
+};
+
+var createVerifyRequest = function (depositId, withdrawId, image) {
+    var uri = `https://cicoservice.azurewebsites.net/api/requests/verify`;
+    
+    var options = {
+        method: 'POST',
+        uri: uri,
+        body: {
+            depositId: depositId,
+            withdrawId: withdrawId,
+            image: image
+        },
+        json: true // Automatically stringifies the body to JSON
+    };
+ 
+    return request(options);
+};
+
+// function sendProactiveMessage(message, address) {
+//     var msg = new builder.Message().address(JSON.parse(address));
+//     msg.text(message);
+//     msg.textLocale('en-US');
+//     bot.send(msg);
 // }
+
+function sendProactiveCard(card, message, address) {
+    var msg = new builder.Message().address(JSON.parse(address));
+    msg.text(message);
+    msg.addAttachment(card);
+    msg.textLocale('en-US');
+    bot.send(msg);
+}
 
 // var order = 1234;
 // function createReceiptCard(session) {
@@ -541,19 +553,5 @@ function createOrUpdateUser(session) {
 //         .buttons([
 //             builder.CardAction.openUrl(session, 'https://azure.microsoft.com/en-us/pricing/', 'More Information')
 //                 .image('https://raw.githubusercontent.com/amido/azure-vector-icons/master/renders/microsoft-azure.png')
-//         ]);
-// }
-
-// function createAudioCard(session) {
-//     return new builder.AudioCard(session)
-//         .title('I am your father')
-//         .subtitle('Star Wars: Episode V - The Empire Strikes Back')
-//         .text('The Empire Strikes Back (also known as Star Wars: Episode V – The Empire Strikes Back) is a 1980 American epic space opera film directed by Irvin Kershner. Leigh Brackett and Lawrence Kasdan wrote the screenplay, with George Lucas writing the film\'s story and serving as executive producer. The second installment in the original Star Wars trilogy, it was produced by Gary Kurtz for Lucasfilm Ltd. and stars Mark Hamill, Harrison Ford, Carrie Fisher, Billy Dee Williams, Anthony Daniels, David Prowse, Kenny Baker, Peter Mayhew and Frank Oz.')
-//         .image(builder.CardImage.create(session, 'https://upload.wikimedia.org/wikipedia/en/3/3c/SW_-_Empire_Strikes_Back.jpg'))
-//         .media([
-//             { url: 'http://www.wavlist.com/movies/004/father.wav' }
-//         ])
-//         .buttons([
-//             builder.CardAction.openUrl(session, 'https://en.wikipedia.org/wiki/The_Empire_Strikes_Back', 'Read More')
 //         ]);
 // }
