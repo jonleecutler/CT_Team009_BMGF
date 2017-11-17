@@ -5,6 +5,9 @@ A simple echo bot for the Microsoft Bot Framework.
 var azure = require('botbuilder-azure');
 var builder = require('botbuilder');
 var restify = require('restify');
+var Promise = require('bluebird');
+var request = require('request-promise').defaults({ encoding: null });
+var btoa = require('btoa');
 
 var stateProperty = 'state';
 var matchProperty = 'match';
@@ -83,6 +86,48 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
     }
     
     var state = getSessionState(session);
+    
+    // PROTOTYPE TAKING IMAGE DATA
+    if (session.message.attachments && session.message.attachments.length > 0) {
+        session.send('Got an image.');
+        
+        var attachment = session.message.attachments[0];
+        var fileDownload = checkRequiresToken(session.message)
+            ? requestWithToken(attachment.contentUrl)
+            : request(attachment.contentUrl);
+
+        console.log(attachment.contentUrl);
+
+        fileDownload.then(
+            function (response) {                
+                var imageData = btoa(response);
+                
+                //console.log('response base64: ' + imageData);
+
+                var options = {
+                    method: 'POST',
+                    uri: 'https://cicoservice.azurewebsites.net/api/requests',
+                    body: {
+                        currency: 'USD',
+                        amount: 1.75,
+	                    type: 'withdraw',
+	                    image: imageData
+                    },
+                    json: true // Automatically stringifies the body to JSON
+                };
+                 
+                request(options)
+                    .then(function (parsedBody) {
+                        // POST succeeded...
+                        console.log('success: ' + parsedBody);
+                        session.send(parsedBody);
+                    })
+                    .catch(function (err) {
+                        // POST failed...
+                        console.log('success');
+                    });
+            });
+    }
     
     // session.send('Name: \'%s\'\n, Id: \'%s\'\n, Input: \'%s\'\n, Channel: \'%s\'\n, State: \'%s\'',
     //     session.message.user.name,
@@ -185,6 +230,9 @@ function endSession(session) {
 * ---------------------------------------------------------------------------------------- */
 
 function handleStartState(session) {
+    // Ensure the user exists
+    createOrUpdateUser(session);
+    
     session.send(new builder.Message(session).addAttachment(createWelcomeCard(session, session.message.user.name)));  
     session.send(new builder.Message(session).addAttachment(createHomeCard(session)));  
     setSessionState(session, SessionState.HOMEPROMPT);
@@ -192,7 +240,7 @@ function handleStartState(session) {
 
 function handleHomePromptState(session) {
     var message = session.message.text;
-    
+
     if (message.toUpperCase() == 'WITHDRAW') {
         session.send(new builder.Message(session).addAttachment(createWithdrawCard(session)));
         setSessionState(session, SessionState.WITHDRAW);
@@ -214,7 +262,7 @@ function handleWithdrawState(session) {
     // Display Map of Matches
     session.send(new builder.Message(session).addAttachment(createMapMatches(session)));
     // Display Carousel of Matches
-    session.send(new builder.Message(session).attachmentLayout(builder.AttachmentLayout.carousel).attachments((createMatchCards(session))));
+    //session.send(new builder.Message(session).attachmentLayout(builder.AttachmentLayout.carousel).attachments((createMatchCards(session))));
     
     setSessionState(session, SessionState.MATCHES);
 }
@@ -244,7 +292,7 @@ function handleMeetState(session) {
 
 function createWelcomeCard(session, name) {
     return new builder.HeroCard(session)
-        .title('Welcome back to Money Jadoo, ' + name + '.')
+        .title('Namaste, ' + name + '!')
         .subtitle('')
         .text('')
         .images([
@@ -269,11 +317,15 @@ function createHomeCard(session) {
 
 function createMapMatches(session) {
     return new builder.HeroCard(session)
-        .title('Here are your top 5 matches.')
+        //.title('Here are your top 5 matches.')
+        .title('You have been matched!')
         .subtitle('')
         .text('')
+        // .images([
+        //     builder.CardImage.create(session, 'https://cicostorage.blob.core.windows.net/bot-images/Map%20Image.png')
+        // ])
         .images([
-            builder.CardImage.create(session, 'https://cicostorage.blob.core.windows.net/bot-images/Map%20Image.png')
+            builder.CardImage.create(session, 'https://cicostorage.blob.core.windows.net/bot-images/User%201.png')
         ])
         .buttons([
         ]);
@@ -397,6 +449,64 @@ function createDepositCard(session) {
             builder.CardAction.postBack(session, "Other", "Other")
         ]);
 }
+
+// Request file with Authentication Header
+var requestWithToken = function (url) {
+    return obtainToken().then(function (token) {
+        return request({
+            url: url,
+            headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/octet-stream'
+            }
+        });
+    });
+};
+
+// Promise for obtaining JWT Token (requested once)
+var obtainToken = Promise.promisify(connector.getAccessToken.bind(connector));
+
+var checkRequiresToken = function (message) {
+    return message.source === 'skype' || message.source === 'msteams';
+};
+
+var getUserRequest = function (id) {
+    var uri = `https://cicoservice.azurewebsites.net/api/users/${id}`;
+    
+    var options = {
+        method: 'GET',
+        uri: uri,
+        json: true // Automatically stringifies the body to JSON
+    };
+ 
+    return request(options);
+};
+
+var createOrUpdateUserRequest = function (message) {
+    var uri = `https://cicoservice.azurewebsites.net/api/users`;
+    
+    var options = {
+        method: 'POST',
+        uri: uri,
+        body: {
+            id: message.user.id,
+            name: message.user.name,
+            address: JSON.stringify(message.address)
+        },
+        json: true // Automatically stringifies the body to JSON
+    };
+ 
+    return request(options);
+};
+ 
+function createOrUpdateUser(session) {
+    createOrUpdateUserRequest(session.message).then(function (parsedBody) {
+        console.log('user updated');
+    })
+    .catch(function (err) {
+        console.log('failed to update user');
+    });
+};
 
 // function createQRCode(session) {
 //     return new builder.HeroCard(session)
